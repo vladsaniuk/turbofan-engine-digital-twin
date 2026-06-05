@@ -4,6 +4,10 @@ import plotly.graph_objects as go
 from twin.data_loader import get_unit, label_for
 from twin.replay import row_to_state
 from twin.llm import ask_twin
+from twin.model import load_or_train, predict_rul
+from twin.contract import validate_row, load_contract
+from twin.graph import subsystem_health
+from twin.maintenance import evaluate_maintenance
 
 st.set_page_config(page_title="C-MAPSS Digital Twin", layout="wide")
 
@@ -25,6 +29,12 @@ if st.session_state.current_unit != unit_id:
     st.session_state.cursor = 0
     st.session_state.playing = False
 
+@st.cache_resource
+def get_model():
+    return load_or_train()
+
+model = get_model()
+
 # Load Data
 df = load_unit_data(unit_id)
 max_cursor = len(df) - 1
@@ -37,6 +47,8 @@ if "playing" not in st.session_state:
 
 # Playback speed
 tick_speed = st.sidebar.slider("Tick Speed (seconds)", min_value=0.1, max_value=2.0, value=0.5, step=0.1)
+
+maint_threshold = st.sidebar.slider("Maintenance Alert Threshold (RUL)", min_value=1, max_value=50, value=25)
 
 # Playback controls
 col1, col2 = st.sidebar.columns(2)
@@ -60,9 +72,21 @@ if cursor != st.session_state.cursor:
 current_row = df.iloc[st.session_state.cursor]
 current_cycle = int(current_row['cycle'])
 current_rul = int(current_row['RUL'])
+current_state = row_to_state(current_row)
 
 # UI Layout
 st.title(f"Engine {unit_id} — Cycle {current_cycle} / {len(df)}")
+
+is_valid, errors = validate_row(current_state)
+if is_valid:
+    st.success("✅ Contract: VALID")
+else:
+    st.error(f"❌ Contract: INVALID ({', '.join(errors)})")
+
+with st.expander("DTDL Contract Telemetry List"):
+    contract_data = load_contract()
+    telemetry = [item for item in contract_data.get("contents", []) if item.get("@type") == "Telemetry"]
+    st.json(telemetry)
 
 if current_rul == 0:
     st.error("🚨 Engine failed / end of trajectory")
@@ -77,7 +101,10 @@ if st.session_state.cursor > 0:
 else:
     delta_rul = None
 
-st.metric("Remaining Useful Life (RUL)", current_rul, delta=delta_rul, delta_color="inverse")
+predicted_rul = predict_rul(model, current_state)
+met1, met2 = st.columns(2)
+met1.metric("Actual RUL", current_rul, delta=delta_rul, delta_color="inverse")
+met2.metric("Predicted RUL", int(predicted_rul), delta=int(predicted_rul - current_rul), delta_color="off")
 
 def make_sensor_chart(history_df, sensor, current_row):
     fig = go.Figure()
@@ -105,6 +132,33 @@ selected_sensors = st.sidebar.multiselect(
 
 history_df = df.iloc[:st.session_state.cursor + 1]
 
+sub_scores = subsystem_health(current_state, history_df)
+
+st.markdown("---")
+st.subheader("Subsystem Health Ranking")
+st.caption("Higher score = faster degradation over last 20 cycles")
+sorted_subs = sorted(sub_scores.items(), key=lambda x: x[1], reverse=True)
+for i, (sub, score) in enumerate(sorted_subs):
+    if i == 0 and score > 0:
+        st.error(f"**{sub}** is degrading fastest (Score: {score:.4f})")
+    else:
+        st.write(f"- {sub}: {score:.4f}")
+
+maint_decision = evaluate_maintenance(predicted_rul, threshold=maint_threshold)
+if maint_decision["schedule"]:
+    st.error(f"⚠️ Maintenance scheduled — predicted RUL {int(predicted_rul)} < {maint_threshold} (Urgency: {maint_decision['urgency']})")
+    with st.expander("SimPy Maintenance Event Log", expanded=True):
+        for log_line in maint_decision["log"]:
+            st.code(log_line)
+
+# RUL tracking chart
+history_predictions = predict_rul(model, history_df)
+fig_rul = go.Figure()
+fig_rul.add_trace(go.Scatter(x=history_df['cycle'], y=history_df['RUL'], mode='lines', name='Actual RUL', line=dict(color='green')))
+fig_rul.add_trace(go.Scatter(x=history_df['cycle'], y=history_predictions, mode='lines', name='Predicted RUL', line=dict(color='orange')))
+fig_rul.update_layout(title="RUL Degradation Curve", height=300, xaxis_title="Cycle", yaxis_title="RUL")
+st.plotly_chart(fig_rul, use_container_width=True)
+
 if selected_sensors:
     N = 3
     for i in range(0, len(selected_sensors), N):
@@ -116,7 +170,6 @@ if selected_sensors:
                 cols[j].plotly_chart(fig, use_container_width=True)
 
 # Raw State
-current_state = row_to_state(current_row)
 display_state = dict(current_state)
 display_state["sensors"] = {label_for(k): v for k, v in current_state["sensors"].items()}
 
@@ -151,7 +204,7 @@ if question_to_ask:
     
     with st.chat_message("assistant"):
         with st.spinner("Analyzing engine telemetry..."):
-            answer = ask_twin(question_to_ask, current_state, history_df)
+            answer = ask_twin(question_to_ask, current_state, history_df, subsystem_scores=sub_scores)
             st.write(answer)
     
     st.session_state.chat.append({"role": "assistant", "content": answer})

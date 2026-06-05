@@ -21,7 +21,7 @@ def round_floats(obj):
         return [round_floats(x) for x in obj]
     return obj
 
-def state_to_prompt(state: dict, history_df: pd.DataFrame, window: int = 10) -> str:
+def state_to_prompt(state: dict, history_df: pd.DataFrame, window: int = 10, subsystem_scores: dict = None) -> str:
     recent_history_df = history_df.tail(window)
     active_sensors = list(state["sensors"].keys())
     
@@ -57,15 +57,20 @@ def state_to_prompt(state: dict, history_df: pd.DataFrame, window: int = 10) -> 
         ]
     }
     
+    if subsystem_scores is not None:
+        payload["subsystem_health_ranking"] = {
+            k: round_floats(v) for k, v in sorted(subsystem_scores.items(), key=lambda item: item[1], reverse=True)
+        }
+    
     compact_json = json.dumps(round_floats(payload), separators=(',', ':'))
     return f"Current Twin State & History:\n{compact_json}"
 
-def ask_twin(question: str, state: dict, history_df: pd.DataFrame, window: int = 10) -> str:
+def ask_twin(question: str, state: dict, history_df: pd.DataFrame, window: int = 10, subsystem_scores: dict = None) -> str:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return "Please set the GEMINI_API_KEY environment variable to use the LLM."
         
-    user_content = state_to_prompt(state, history_df, window) + f"\n\nQuestion: {question}"
+    user_content = state_to_prompt(state, history_df, window, subsystem_scores) + f"\n\nQuestion: {question}"
     
     try:
         from google import genai

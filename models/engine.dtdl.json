@@ -1,0 +1,34 @@
+{
+  "@context": "dtmi:dtdl:context;2",
+  "@id": "dtmi:cmapss:TurbofanEngine;1",
+  "@type": "Interface",
+  "displayName": "Turbofan Engine",
+  "contents": [
+    { "@type": "Property", "name": "unit_id", "schema": "integer" },
+    { "@type": "Property", "name": "cycle", "schema": "integer" },
+    { "@type": "Telemetry", "name": "RUL", "schema": "double" },
+    
+    { "@type": "Telemetry", "name": "op_setting_1", "schema": "double", "displayName": "Operational Setting 1" },
+    { "@type": "Telemetry", "name": "op_setting_2", "schema": "double", "displayName": "Operational Setting 2" },
+    { "@type": "Telemetry", "name": "op_setting_3", "schema": "double", "displayName": "Operational Setting 3" },
+    
+    { "@type": "Telemetry", "name": "LPC_outlet_temp", "schema": "double", "displayName": "Low-Pressure Compressor Outlet Temperature (°R)" },
+    { "@type": "Telemetry", "name": "HPC_outlet_temp", "schema": "double", "displayName": "High-Pressure Compressor Outlet Temperature (°R)" },
+    { "@type": "Telemetry", "name": "LPT_outlet_temp", "schema": "double", "displayName": "Low-Pressure Turbine Outlet Temperature (°R)" },
+    { "@type": "Telemetry", "name": "bypass_duct_total_pressure", "schema": "double", "displayName": "Bypass Duct Total Pressure (psia)" },
+    { "@type": "Telemetry", "name": "HPC_outlet_pressure", "schema": "double", "displayName": "High-Pressure Compressor Outlet Pressure (psia)" },
+    { "@type": "Telemetry", "name": "fan_speed", "schema": "double", "displayName": "Fan Speed (rpm)" },
+    { "@type": "Telemetry", "name": "core_speed", "schema": "double", "displayName": "Core Speed (rpm)" },
+    { "@type": "Telemetry", "name": "HPC_outlet_static_pressure", "schema": "double", "displayName": "High-Pressure Compressor Outlet Static Pressure (psia)" },
+    { "@type": "Telemetry", "name": "fuel_flow_ratio", "schema": "double", "displayName": "Fuel Flow to Static Pressure Ratio (pps/psi)" },
+    { "@type": "Telemetry", "name": "corrected_fan_speed", "schema": "double", "displayName": "Corrected Fan Speed (rpm)" },
+    { "@type": "Telemetry", "name": "corrected_core_speed", "schema": "double", "displayName": "Corrected Core Speed (rpm)" },
+    { "@type": "Telemetry", "name": "bypass_ratio", "schema": "double", "displayName": "Bypass Ratio" },
+    { "@type": "Telemetry", "name": "bleed_enthalpy", "schema": "double", "displayName": "Bleed Enthalpy" },
+    { "@type": "Telemetry", "name": "HPT_coolant_bleed_flow", "schema": "double", "displayName": "High-Pressure Turbine Coolant Bleed Flow (lbm/s)" },
+    { "@type": "Telemetry", "name": "LPT_coolant_bleed_flow", "schema": "double", "displayName": "Low-Pressure Turbine Coolant Bleed Flow (lbm/s)" },
+    
+    { "@type": "Relationship", "name": "rel_has_subsystem", "displayName": "Has Subsystem", "target": "dtmi:cmapss:Subsystem;1" },
+    { "@type": "Relationship", "name": "rel_has_sensor", "displayName": "Has Sensor", "target": "dtmi:cmapss:Sensor;1" }
+  ]
+}
