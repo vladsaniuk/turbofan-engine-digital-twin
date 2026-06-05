@@ -7,6 +7,27 @@ COLUMNS = (
     [f"sensor_{i}" for i in range(1, 22)]
 )
 
+SENSOR_LABELS = {
+    "sensor_2":  "Low-Pressure Compressor Outlet Temperature (°R)",
+    "sensor_3":  "High-Pressure Compressor Outlet Temperature (°R)",
+    "sensor_4":  "Low-Pressure Turbine Outlet Temperature (°R)",
+    "sensor_6":  "Bypass Duct Total Pressure (psia)",
+    "sensor_7":  "High-Pressure Compressor Outlet Pressure (psia)",
+    "sensor_8":  "Fan Speed (rpm)",
+    "sensor_9":  "Core Speed (rpm)",
+    "sensor_11": "High-Pressure Compressor Outlet Static Pressure (psia)",
+    "sensor_12": "Fuel Flow to Static Pressure Ratio (pps/psi)",
+    "sensor_13": "Corrected Fan Speed (rpm)",
+    "sensor_14": "Corrected Core Speed (rpm)",
+    "sensor_15": "Bypass Ratio",
+    "sensor_17": "Bleed Enthalpy",
+    "sensor_20": "High-Pressure Turbine Coolant Bleed Flow (lbm/s)",
+    "sensor_21": "Low-Pressure Turbine Coolant Bleed Flow (lbm/s)",
+}
+
+def label_for(col):
+    return SENSOR_LABELS.get(col, col)
+
 # Global caches for sensor lists
 FLAT_SENSORS = []
 ACTIVE_SENSORS = []

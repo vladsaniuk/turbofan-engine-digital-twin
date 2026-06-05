@@ -1,8 +1,9 @@
 import streamlit as st
 import time
 import plotly.graph_objects as go
-from twin.data_loader import get_unit
+from twin.data_loader import get_unit, label_for
 from twin.replay import row_to_state
+from twin.llm import ask_twin
 
 st.set_page_config(page_title="C-MAPSS Digital Twin", layout="wide")
 
@@ -83,7 +84,7 @@ def make_sensor_chart(history_df, sensor, current_row):
     fig.add_trace(go.Scatter(x=history_df['cycle'], y=history_df[sensor], mode='lines', line=dict(color='blue')))
     fig.add_trace(go.Scatter(x=[current_row['cycle']], y=[current_row[sensor]], mode='markers', marker=dict(color='red', size=10)))
     fig.update_layout(
-        title=sensor, 
+        title=label_for(sensor), 
         height=200, 
         margin=dict(l=0, r=0, t=30, b=0), 
         showlegend=False,
@@ -95,7 +96,12 @@ def make_sensor_chart(history_df, sensor, current_row):
 active_sensor_cols = [c for c in df.columns if c.startswith('sensor_')]
 
 st.sidebar.markdown("---")
-selected_sensors = st.sidebar.multiselect("Sensors to display", options=active_sensor_cols, default=active_sensor_cols)
+selected_sensors = st.sidebar.multiselect(
+    "Sensors to display", 
+    options=active_sensor_cols, 
+    default=active_sensor_cols,
+    format_func=label_for
+)
 
 history_df = df.iloc[:st.session_state.cursor + 1]
 
@@ -110,8 +116,45 @@ if selected_sensors:
                 cols[j].plotly_chart(fig, use_container_width=True)
 
 # Raw State
+current_state = row_to_state(current_row)
+display_state = dict(current_state)
+display_state["sensors"] = {label_for(k): v for k, v in current_state["sensors"].items()}
+
 with st.expander("Raw State (JSON)"):
-    st.json(row_to_state(current_row))
+    st.json(display_state)
+
+st.markdown("---")
+st.subheader("Ask the Twin")
+st.caption("Answers reflect the current engine state and history up to the selected cycle.")
+
+if "chat" not in st.session_state:
+    st.session_state.chat = []
+
+col1, col2, col3 = st.columns(3)
+quick_q = None
+if col1.button("Which sensors are trending toward failure?"):
+    quick_q = "Which sensors are trending toward failure?"
+if col2.button("Estimate remaining useful life and explain why"):
+    quick_q = "Estimate remaining useful life and explain why"
+if col3.button("What happens if load increases?"):
+    quick_q = "What happens if load increases?"
+
+for msg in st.session_state.chat:
+    st.chat_message(msg["role"]).write(msg["content"])
+
+user_q = st.chat_input("Ask a question about the engine...")
+question_to_ask = quick_q or user_q
+
+if question_to_ask:
+    st.chat_message("user").write(question_to_ask)
+    st.session_state.chat.append({"role": "user", "content": question_to_ask})
+    
+    with st.chat_message("assistant"):
+        with st.spinner("Analyzing engine telemetry..."):
+            answer = ask_twin(question_to_ask, current_state, history_df)
+            st.write(answer)
+    
+    st.session_state.chat.append({"role": "assistant", "content": answer})
 
 # Auto-play loop logic
 if st.session_state.playing:
