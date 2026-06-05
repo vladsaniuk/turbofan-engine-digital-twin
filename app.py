@@ -8,6 +8,9 @@ from twin.model import load_or_train, predict_rul
 from twin.contract import validate_row, load_contract
 from twin.graph import subsystem_health
 from twin.maintenance import evaluate_maintenance
+from twin.engine_svg import render_engine_svg
+from twin.engine_overlay import render_engine_overlay
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="C-MAPSS Digital Twin", layout="wide")
 
@@ -16,6 +19,8 @@ def load_unit_data(unit_id):
     return get_unit(unit_id)
 
 st.sidebar.title("Controls")
+
+view_mode = st.sidebar.radio("Engine view", ["Schematic blocks", "Realistic cutaway"])
 
 # Select Unit
 unit_id = st.sidebar.number_input("Unit ID (1-100)", min_value=1, max_value=100, value=1, step=1)
@@ -74,8 +79,22 @@ current_cycle = int(current_row['cycle'])
 current_rul = int(current_row['RUL'])
 current_state = row_to_state(current_row)
 
+history_df = df.iloc[:st.session_state.cursor + 1]
+sub_scores = subsystem_health(current_state, history_df)
+
 # UI Layout
 st.title(f"Engine {unit_id} — Cycle {current_cycle} / {len(df)}")
+
+if view_mode == "Realistic cutaway":
+    overlay_html = render_engine_overlay(sub_scores)
+    if overlay_html:
+        components.html(overlay_html, height=650)
+        st.caption("Engine diagram by K. Aainsqatsi / Wikimedia Commons, [Turbofan operation.svg](https://commons.wikimedia.org/wiki/File:Turbofan_operation.svg), licensed CC BY 2.5")
+    else:
+        st.warning("⚠️ Cutaway image not found at `assets/engine_diagram.png`! \n\n**Manual Instructions**: Please download a CC0 public domain turbofan cutaway (e.g. from Wikimedia Commons) and save it as `assets/engine_diagram.png`. Falling back to schematic blocks.")
+        st.markdown(f'<div style="text-align: center;">{render_engine_svg(sub_scores)}</div>', unsafe_allow_html=True)
+else:
+    st.markdown(f'<div style="text-align: center;">{render_engine_svg(sub_scores)}</div>', unsafe_allow_html=True)
 
 is_valid, errors = validate_row(current_state)
 if is_valid:
@@ -129,10 +148,6 @@ selected_sensors = st.sidebar.multiselect(
     default=active_sensor_cols,
     format_func=label_for
 )
-
-history_df = df.iloc[:st.session_state.cursor + 1]
-
-sub_scores = subsystem_health(current_state, history_df)
 
 st.markdown("---")
 st.subheader("Subsystem Health Ranking")

@@ -35,3 +35,6 @@ export GEMINI_API_KEY="your-gemini-key"
 ## Dataset
 
 Download the C-MAPSS dataset and place the `*.txt` files in the `data/` directory.
+
+## Credits
+* Engine diagram by K. Aainsqatsi / Wikimedia Commons, ["Turbofan operation.svg"](https://commons.wikimedia.org/wiki/File:Turbofan_operation.svg), licensed CC BY 2.5.

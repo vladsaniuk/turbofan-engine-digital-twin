@@ -3,3 +3,4 @@ data/*.txt
 __pycache__/
 .env
 *.pyc
+models/rul_model.joblib
