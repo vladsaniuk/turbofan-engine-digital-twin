@@ -41,22 +41,23 @@ def load_or_train(path="data/train_FD001.txt"):
 def predict_rul(model, state_or_df):
     """Predicts RUL from a twin state dict or a history DataFrame."""
     if isinstance(state_or_df, dict):
-        # Extract features in the right order
         features = {}
         for k, v in state_or_df.get('settings', {}).items():
             features[k] = [v]
         for k, v in state_or_df.get('sensors', {}).items():
             features[k] = [v]
-        # Make a single-row DataFrame (since feature names match the training data)
         X = pd.DataFrame(features)
-        # Ensure correct column order by matching the training data (all op_settings then sensors)
-        # We rely on pd.DataFrame sorting or just trusting the dict insertion order if it matches
-        # Let's explicitly sort keys like prepare_features does:
-        cols = [c for c in X.columns if c.startswith('op_setting_')] + [c for c in X.columns if c.startswith('sensor_')]
-        X = X[cols]
+        if hasattr(model, "feature_names_in_"):
+            X = X[model.feature_names_in_]
+        else:
+            cols = [c for c in X.columns if c.startswith('op_setting_')] + [c for c in X.columns if c.startswith('sensor_')]
+            X = X[cols]
         return model.predict(X)[0]
     elif isinstance(state_or_df, pd.DataFrame):
-        X = prepare_features(state_or_df)
+        if hasattr(model, "feature_names_in_"):
+            X = state_or_df[model.feature_names_in_]
+        else:
+            X = prepare_features(state_or_df)
         return model.predict(X)
 
 if __name__ == "__main__":

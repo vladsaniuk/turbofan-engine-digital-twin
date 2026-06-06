@@ -4,3 +4,5 @@ __pycache__/
 .env
 *.pyc
 models/rul_model.joblib
+# Added by code-review-graph
+.code-review-graph/

@@ -11,6 +11,9 @@ from twin.maintenance import evaluate_maintenance
 from twin.engine_svg import render_engine_svg
 from twin.engine_overlay import render_engine_overlay
 import streamlit.components.v1 as components
+from twin.config import pipeline_active
+from twin.mqtt_io import publish_state
+from twin.influx_io import write_state, query_recent
 
 st.set_page_config(page_title="C-MAPSS Digital Twin", layout="wide")
 
@@ -19,6 +22,11 @@ def load_unit_data(unit_id):
     return get_unit(unit_id)
 
 st.sidebar.title("Controls")
+
+st.session_state.pipeline_enabled = st.sidebar.toggle(
+    "⚙️ Enable RabbitMQ+Influx pipeline (experimental)",
+    value=st.session_state.get("pipeline_enabled", False)
+)
 
 view_mode = st.sidebar.radio("Engine view", ["Schematic blocks", "Realistic cutaway"])
 
@@ -82,8 +90,40 @@ current_state = row_to_state(current_row)
 history_df = df.iloc[:st.session_state.cursor + 1]
 sub_scores = subsystem_health(current_state, history_df)
 
+dashboard_source = "in-memory replay"
+chart_df = history_df
+pipeline_status = ""
+
+if pipeline_active():
+    mqtt_ok = publish_state(current_state)
+    
+    if mqtt_ok:
+        pipeline_status = "Pipeline: publishing to RabbitMQ ✓"
+    else:
+        pipeline_status = "Pipeline: RabbitMQ publish ❌"
+        
+    recent_df = query_recent(unit_id)
+    if recent_df is not None:
+        # Filter future cycles from previous scrubs
+        recent_df = recent_df[recent_df['cycle'] <= current_cycle].copy()
+        
+        # Append current row to fix async pipeline lag (so line reaches red dot)
+        if current_cycle not in recent_df['cycle'].values:
+            import pandas as pd
+            chart_df = pd.concat([recent_df, pd.DataFrame([current_row])], ignore_index=True)
+        else:
+            chart_df = recent_df
+            
+        dashboard_source = "InfluxDB"
+
 # UI Layout
 st.title(f"Engine {unit_id} — Cycle {current_cycle} / {len(df)}")
+if pipeline_status:
+    if "❌" in pipeline_status:
+        st.warning(pipeline_status)
+    else:
+        st.success(pipeline_status)
+st.caption(f"Source: {dashboard_source}")
 
 if view_mode == "Realistic cutaway":
     overlay_html = render_engine_overlay(sub_scores)
@@ -167,10 +207,10 @@ if maint_decision["schedule"]:
             st.code(log_line)
 
 # RUL tracking chart
-history_predictions = predict_rul(model, history_df)
+history_predictions = predict_rul(model, chart_df)
 fig_rul = go.Figure()
-fig_rul.add_trace(go.Scatter(x=history_df['cycle'], y=history_df['RUL'], mode='lines', name='Actual RUL', line=dict(color='green')))
-fig_rul.add_trace(go.Scatter(x=history_df['cycle'], y=history_predictions, mode='lines', name='Predicted RUL', line=dict(color='orange')))
+fig_rul.add_trace(go.Scatter(x=chart_df['cycle'], y=chart_df['RUL'], mode='lines', name='Actual RUL', line=dict(color='green')))
+fig_rul.add_trace(go.Scatter(x=chart_df['cycle'], y=history_predictions, mode='lines', name='Predicted RUL', line=dict(color='orange')))
 fig_rul.update_layout(title="RUL Degradation Curve", height=300, xaxis_title="Cycle", yaxis_title="RUL")
 st.plotly_chart(fig_rul, use_container_width=True)
 
@@ -181,7 +221,7 @@ if selected_sensors:
         for j in range(N):
             if i + j < len(selected_sensors):
                 sensor = selected_sensors[i + j]
-                fig = make_sensor_chart(history_df, sensor, current_row)
+                fig = make_sensor_chart(chart_df, sensor, current_row)
                 cols[j].plotly_chart(fig, use_container_width=True)
 
 # Raw State

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "1883:1883"
+      - "15672:15672"
+      - "5672:5672"
+    volumes:
+      - ./docker/rabbitmq_enabled_plugins:/etc/rabbitmq/enabled_plugins
+
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
+      - DOCKER_INFLUXDB_INIT_ORG=demo-org
+      - DOCKER_INFLUXDB_INIT_BUCKET=demo-bucket
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=demo-token
+    volumes:
+      - influxdb2_data:/var/lib/influxdb2
+
+volumes:
+  influxdb2_data:

@@ -2,3 +2,5 @@ streamlit
 google-genai
 pandas
 plotly
+paho-mqtt
+influxdb-client
