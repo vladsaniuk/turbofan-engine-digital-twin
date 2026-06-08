@@ -6,14 +6,10 @@ logger = logging.getLogger(__name__)
 def publish_state(state, topic="twin/engine/telemetry", host="localhost", port=1883):
     """Publish engine state to MQTT broker."""
     try:
-        import paho.mqtt.client as mqtt
-        
-        client = mqtt.Client()
-        client.connect(host, port)
+        import paho.mqtt.publish as publish
         
         payload = json.dumps(state)
-        client.publish(topic, payload)
-        client.disconnect()
+        publish.single(topic, payload=payload, hostname=host, port=port)
         return True
     except Exception as e:
         logger.warning(f"Failed to publish MQTT state: {e}")

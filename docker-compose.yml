@@ -21,8 +21,3 @@ services:
       - DOCKER_INFLUXDB_INIT_ORG=demo-org
       - DOCKER_INFLUXDB_INIT_BUCKET=demo-bucket
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=demo-token
-    volumes:
-      - influxdb2_data:/var/lib/influxdb2
-
-volumes:
-  influxdb2_data:

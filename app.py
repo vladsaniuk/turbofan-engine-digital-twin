@@ -10,10 +10,9 @@ from twin.graph import subsystem_health
 from twin.maintenance import evaluate_maintenance
 from twin.engine_svg import render_engine_svg
 from twin.engine_overlay import render_engine_overlay
-import streamlit.components.v1 as components
 from twin.config import pipeline_active
 from twin.mqtt_io import publish_state
-from twin.influx_io import write_state, query_recent
+from twin.influx_io import query_recent
 
 st.set_page_config(page_title="C-MAPSS Digital Twin", layout="wide")
 
@@ -128,7 +127,7 @@ st.caption(f"Source: {dashboard_source}")
 if view_mode == "Realistic cutaway":
     overlay_html = render_engine_overlay(sub_scores)
     if overlay_html:
-        components.html(overlay_html, height=650)
+        st.html(overlay_html)
         st.caption("Engine diagram by K. Aainsqatsi / Wikimedia Commons, [Turbofan operation.svg](https://commons.wikimedia.org/wiki/File:Turbofan_operation.svg), licensed CC BY 2.5")
     else:
         st.warning("⚠️ Cutaway image not found at `assets/engine_diagram.png`! \n\n**Manual Instructions**: Please download a CC0 public domain turbofan cutaway (e.g. from Wikimedia Commons) and save it as `assets/engine_diagram.png`. Falling back to schematic blocks.")
@@ -212,7 +211,7 @@ fig_rul = go.Figure()
 fig_rul.add_trace(go.Scatter(x=chart_df['cycle'], y=chart_df['RUL'], mode='lines', name='Actual RUL', line=dict(color='green')))
 fig_rul.add_trace(go.Scatter(x=chart_df['cycle'], y=history_predictions, mode='lines', name='Predicted RUL', line=dict(color='orange')))
 fig_rul.update_layout(title="RUL Degradation Curve", height=300, xaxis_title="Cycle", yaxis_title="RUL")
-st.plotly_chart(fig_rul, use_container_width=True)
+st.plotly_chart(fig_rul, width="stretch")
 
 if selected_sensors:
     N = 3
@@ -222,7 +221,7 @@ if selected_sensors:
             if i + j < len(selected_sensors):
                 sensor = selected_sensors[i + j]
                 fig = make_sensor_chart(chart_df, sensor, current_row)
-                cols[j].plotly_chart(fig, use_container_width=True)
+                cols[j].plotly_chart(fig, width="stretch")
 
 # Raw State
 display_state = dict(current_state)
